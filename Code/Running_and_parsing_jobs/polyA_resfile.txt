@@ -1,0 +1,5 @@
+## an example polyA resfile for rosetta fixbb. take a peptide chain (B in this case) and turns evertyhing to ALA
+
+NATRO
+start
+* B PIKAA A
