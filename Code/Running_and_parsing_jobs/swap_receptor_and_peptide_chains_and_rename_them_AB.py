@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# script to take a pdb of 2 chains and make the receptor chain first and named A, and peptide second and named B
 from biopandas.pdb import PandasPdb
 import pandas as pd
 from pandas import Series
