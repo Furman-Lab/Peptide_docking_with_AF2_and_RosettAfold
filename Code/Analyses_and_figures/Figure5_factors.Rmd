@@ -19,7 +19,7 @@ source('load_data.R')
 
 ```{r}
 # merge RMSD-s with length and secondary structure annotations
-secstr_length_data_org <- read.csv('../../Data/secondary_structure_and_length.tsv', sep='\t', stringsAsFactors = F)
+secstr_length_data_org <- read.csv('../../Data/minimum_values/secondary_structure_and_length.tsv', sep='\t', stringsAsFactors = F)
 
 secstr_length_data <- secstr_length_data_org %>% filter(pfpd_set=="False") %>% 
   select(final_id, final_chain, final_peptide, pep_is_helix, 
@@ -157,8 +157,10 @@ secstr_bb_rmsbbif
 ```{r}
 ##########################################################
 # load data
-not_approved_sep_chains_data <- read.csv('../../Data/min_sep_chains_env_not_approved_new_columns.csv', stringsAsFactors = F)
-not_approved_linker_data <- read.csv('../../Data/min_linker_env_not_approved_new_columns.csv', stringsAsFactors = F)
+not_approved_sep_chains_data <- read.csv('../../Data/minimum_values/min_sep_chains_env_not_approved_new_columns.csv', 
+                                         stringsAsFactors = F)
+not_approved_linker_data <- read.csv('../../Data/minimum_values/min_linker_env_not_approved_new_columns.csv', 
+                                     stringsAsFactors = F)
 not_approved_linker_data$link_type <- 'linker'
 not_approved_sep_chains_data$link_type <- 'sep_chains'
 

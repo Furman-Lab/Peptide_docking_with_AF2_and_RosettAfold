@@ -5,14 +5,14 @@ source('common_variables.R')
 ##########################################################
 
 # load data
-motif_linker_data <- read.csv('../../Data/min_linker_env_motif_new_columns.csv', stringsAsFactors = F)
-nonmotif_linker_data <- read.csv('../../Data/min_linker_env_nonmotif_new_columns.csv', stringsAsFactors = F)
-approved_linker_data <- read.csv('../../Data/min_linker_env_improved_dataset_new_columns.csv', stringsAsFactors = F)
+motif_linker_data <- read.csv('../../Data/minimum_values/min_linker_env_motif_new_columns.csv', stringsAsFactors = F)
+nonmotif_linker_data <- read.csv('../../Data/minimum_values/min_linker_env_nonmotif_new_columns.csv', stringsAsFactors = F)
+approved_linker_data <- read.csv('../../Dataminimum_values//min_linker_env_improved_dataset_new_columns.csv', stringsAsFactors = F)
 
 
-motif_sep_data <- read.csv('../../Data/min_sep_chains_env_motif_new_columns.csv', stringsAsFactors = F)
-nonmotif_sep_data <- read.csv('../../Data/min_sep_chains_env_nonmotif_new_columns.csv', stringsAsFactors = F)
-approved_sep_data <- read.csv('../../Data/min_sep_chains_env_improved_dataset_new_columns.csv', stringsAsFactors = F)
+motif_sep_data <- read.csv('../../Data/minimum_values/min_sep_chains_env_motif_new_columns.csv', stringsAsFactors = F)
+nonmotif_sep_data <- read.csv('../../Data/minimum_values/min_sep_chains_env_nonmotif_new_columns.csv', stringsAsFactors = F)
+approved_sep_data <- read.csv('../../Data/minimum_values/min_sep_chains_env_improved_dataset_new_columns.csv', stringsAsFactors = F)
 
 
 all_fig_1_linker_data <- do.call("rbind", list(motif_linker_data, nonmotif_linker_data, approved_linker_data))
@@ -107,7 +107,7 @@ all_rms_data_combined$method <- 'AlphaFold'
 ##########################################################
 # PFPD data
 Sys.glob('*')
-pfpd <- read.csv('../../Data/min_values_pfpd.csv') %>% select(-X)
+pfpd <- read.csv('../../Data/minimum_values/min_values_pfpd.csv') %>% select(-X)
 pfpd <- pfpd %>% filter(pdb %in% !!final_pfpd_list)
 
 list_of_dfs <- list()

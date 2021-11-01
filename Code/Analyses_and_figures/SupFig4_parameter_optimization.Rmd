@@ -49,7 +49,7 @@ columns_to_summarize <- as.vector(unlist(c('rms_before_ref_super_rec_bb','rms_be
 for (set in c('motif', 'nonmotif')){
   for (e in c('env', 'no_env')){
     for (type in c('linker', 'sep_chains')){
-        data <- read.csv(paste0('../../Data/min_', 
+        data <- read.csv(paste0('../../Data/minimum_values/min_', 
                                 type,'_', e, '_', set, '.csv'), 
                          stringsAsFactors = F, header=T)
         

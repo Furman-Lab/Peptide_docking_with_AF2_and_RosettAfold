@@ -75,10 +75,10 @@ binding_pocket_plot <- ggplot(data = all_pocket_data %>% filter(dataset!='approv
 ```{r}
 
 # load poly-A data
-poly_A_nonmotif_sep_data <- read.csv('../../Data/min_sep_chains_polyA_nonmotif_new_columns.csv', stringsAsFactors = F)
-poly_A_motif_sep_data <- read.csv('../../Data/min_sep_chains_polyA_motif_new_columns.csv', stringsAsFactors = F)
-poly_A_nonmotif_linker <- read.csv('../../Data/min_linker_polyA_nonmotif_new_columns.csv', stringsAsFactors = F)
-poly_A_motif_linker <- read.csv('../../Data/min_linker_polyA_motif_new_columns.csv', stringsAsFactors = F)
+poly_A_nonmotif_sep_data <- read.csv('../../Data/minimum_values/min_sep_chains_polyA_nonmotif_new_columns.csv', stringsAsFactors = F)
+poly_A_motif_sep_data <- read.csv('../../Data/minimum_values/min_sep_chains_polyA_motif_new_columns.csv', stringsAsFactors = F)
+poly_A_nonmotif_linker <- read.csv('../../Data/minimum_values/min_linker_polyA_nonmotif_new_columns.csv', stringsAsFactors = F)
+poly_A_motif_linker <- read.csv('../../Data/minimum_values/min_linker_polyA_motif_new_columns.csv', stringsAsFactors = F)
 
 
 all_polyA_sep_data <- do.call("rbind", list(poly_A_nonmotif_sep_data, poly_A_motif_sep_data ))

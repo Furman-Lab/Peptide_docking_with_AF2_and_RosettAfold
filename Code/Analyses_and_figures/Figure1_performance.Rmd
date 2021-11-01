@@ -78,7 +78,7 @@ fig1_ac
 ## PFPD vs AF2
 ```{r}
 # load pfpd data
-af2_data <- read.csv('minimum_values/min_values.csv', stringsAsFactors = F)
+af2_data <- read.csv('../../Data/minimum_values/min_values.csv', stringsAsFactors = F)
 only_pfpd_sets <-  all_rms_data_combined %>% filter(dataset!='approved')
 only_pfpd_sets$pdb <- substr(only_pfpd_sets$pdb_id, 1, 4)
 pfpd_af2_data <- merge(only_pfpd_sets, af2_data, by=c('pdb', 'dataset'), 

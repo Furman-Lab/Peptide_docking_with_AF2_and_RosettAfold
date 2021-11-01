@@ -42,8 +42,6 @@ capri_cumulative <-
   geom_vline(data=capri_cutoffs, aes(xintercept=cutoff, linetype=type))  +
   scale_linetype_manual(values=c('high'='dotted', 'medium'='dotdash', 'acceptable'='dashed'), guide=F)
 
-ggsave('figures/capri_cumulative_combined.png', capri_cumulative, dpi = 300, height = 3, width = 5)
-saveRDS(capri_cumulative, 'figures/capri_cumulative_combined.Rds')
 ```
 
 ## Supplementary Figure 3 - polyG linker vs. separate chains
