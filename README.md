@@ -1,4 +1,4 @@
-# Peptide_docking_with_AF2_and_RosettAfold  
+# Peptide docking with AF2 and RosettAfold  
 This repository holds the raw data and code for reproducing the results and figures of paper  
 **Harnessing protein folding neural networks for peptide-protein docking**  
 by *Tomer Tsaban, Julia Varga, Orly Avraham, Ziv Ben-Aharon, Alisa Khramushin, and Ora Schueler-Furman*  
