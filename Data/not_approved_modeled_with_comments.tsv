@@ -1,0 +1,14 @@
+pdb_id	pdb_replacement	comments_manual_curation_of_the_full_set	class
+-	6fkp	has ptms	ptm
+3p72	-	peptide is cyclic, but cyclization is not in the interface. we should be able to dock the linear peptide	ptm
+2aij	-	covalently bound peptide	ptm
+-	1by5	membrane protein, 3 PTM-s, definitely not ok	ptm
+3jvk	-	acetylated lysine in the pocket	ptm
+-	5iyv	same as previous	ptm
+-	4quf	trimethyllysine, contributing to interaction, since pointing towards a hydrophobic groove	ptm
+5k6s	5k6s	From the paper: Phospho sounds critical	ptm
+-	5nnp	pepeitde bound to ligand in the binding site	ptm
+-	4fwf	FAD deeper into binding site, might still be okay	ptm
+-	4k39	Ligand bound in peptide binding site  - deeper than the peptide	ptm
+4ouc	-	there is a ligand near the binding site that seems to be stabilizing the site. other than that - fine	ptm
+5yv5	-	Ligand bound near peptide binding site	ptm
