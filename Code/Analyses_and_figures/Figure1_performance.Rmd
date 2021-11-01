@@ -1,0 +1,128 @@
+---
+title: "Figure 1 - Performance"
+author: "Julia Varga"
+date: '2021 10 28 '
+output: html_document
+---
+
+```{r}
+##########################################################
+# load common variables like color, mapping, etc and libraries
+source('common_variables.R')
+##########################################################
+
+##########################################################
+# load data
+source('load_data.R')
+##########################################################
+```
+
+## Figure1A - Peptide interface backbone performance
+```{r}
+fig1a_data <- all_frequencies_combined_pfpd_af %>% 
+  filter(rms_type %in% c('Peptide interface', 'CAPRI interface'))
+fig1a_data$rms_type <- factor(fig1a_data$rms_type, levels=c('Peptide interface', 'CAPRI interface'))
+
+fig1a <-
+  ggplot(fig1a_data, aes(x=breaks, y=frequency, color=dataset, linetype=method, shape=method)) +
+  scale_linetype_manual(values=c('PFPD' = 'dotted', 'AlphaFold' = 'solid'), 
+                        labels=c('PFPD'='PFPD', 'AlphaFold'='AF2'))+
+  geom_point(size=1.75) +
+  geom_line(size=0.75) +
+  ylab('Cumulative ratio') +
+  xlab('RMSD [Å]') +
+  scale_x_continuous(limits=c(0, 5), expand=c(0,0)) +
+  scale_color_manual(values=colorscale, guide=F, labels=c('PFPD'='PFPD', 'AlphaFold'='AF2')) +
+  scale_shape_manual(values=c('PFPD' = 17, 'AlphaFold' = 16), guide=F, 
+                     labels=c('PFPD'='PFPD', 'AlphaFold'='AF2')) +
+  scale_y_continuous(labels=percent) +
+  theme(aspect.ratio=1,
+        strip.text.y = element_blank(),
+        legend.position = c(0.37, 0.6),
+        legend.title = element_blank(),
+        legend.text.align = 1
+  ) +
+  facet_grid(rows=vars(rms_atoms), cols=vars(rms_type), scales = 'free')
+fig1a
+```
+
+## Figure1A - Other performances
+```{r}
+fig1c <-
+  ggplot(all_frequencies_combined_pfpd_af %>% 
+           filter(!(rms_type %in% c(capri_columns_nice, 'Peptide interface'))), 
+         aes(x=breaks, y=frequency, color=dataset)) +
+  geom_point(size=1.75) +
+  geom_line(size=0.75) +
+  ylab('') +
+  xlab('RMSD [Å]') +
+  scale_x_continuous(limits=c(0, 5), expand=c(0,0)) +
+  scale_color_manual(values=colorscale, labels=c('approved'='LNR')) +
+  scale_y_continuous(labels=percent) +
+  theme(aspect.ratio=1,
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.position = c(0.825, 0.64), 
+        legend.title = element_blank(),
+        legend.text.align = 1) +
+  facet_grid(rows=vars(rms_atoms), cols=vars(rms_type), scales = 'free')
+fig1c
+```
+
+```{r}
+fig1_ac <- cowplot::plot_grid(fig1a, fig1c, rel_widths = c(1,2.35), 
+                              labels = c('A', 'C'))
+fig1_ac
+```
+
+## PFPD vs AF2
+```{r}
+# load pfpd data
+af2_data <- read.csv('minimum_values/min_values.csv', stringsAsFactors = F)
+only_pfpd_sets <-  all_rms_data_combined %>% filter(dataset!='approved')
+only_pfpd_sets$pdb <- substr(only_pfpd_sets$pdb_id, 1, 4)
+pfpd_af2_data <- merge(only_pfpd_sets, af2_data, by=c('pdb', 'dataset'), 
+                       suffixes = c('.af2', '.pfpd')) %>% filter()
+
+pfpd_af2_data$capped <- 'N'
+pfpd_af2_data$capped[pfpd_af2_data$rmsBB_if.af2 > 14.9] <- 'Y'
+pfpd_af2_data$capped[pfpd_af2_data$rmsBB_if.pfpd > 14.9] <- 'Y'
+pfpd_af2_data$rmsBB_if.af2[pfpd_af2_data$rmsBB_if.af2 > 14.9] <- 14.9
+pfpd_af2_data$rmsBB_if.pfpd[pfpd_af2_data$rmsBB_if.pfpd > 14.9] <- 14.9
+
+examples <- pfpd_af2_data %>%
+  filter(pdb %in% c('2b9h', '1awr')) %>%
+  select(pdb, rmsBB_if.af2, rmsBB_if.pfpd
+)
+
+```
+
+```{r}
+pfpd_vs_af2 <- ggplot(pfpd_af2_data, 
+                      aes(x=rmsBB_if.af2, y=rmsBB_if.pfpd)) +
+  geom_hline(yintercept=2.5, linetype='dashed', color='darkgrey') +
+  geom_hline(yintercept=5, color='darkgrey')+
+  geom_vline(xintercept=2.5, linetype='dashed', color='darkgrey') +
+  geom_vline(xintercept=5, color='darkgrey') +
+  annotate('text', x=15, y=2.6, hjust = 1, vjust=0, face='bold',
+           label='near-native', color='darkgrey') +
+  geom_point(size=4, alpha=0.6, aes(color=dataset, shape=capped)) +
+  scale_shape_manual(values=c(16, 17),
+                     labels=c('Y' = '>=15 Å', 'N' = '<15 Å'))+
+  scale_color_manual(values = colorscale, guide=F) +
+  xlab('AF2 RMSD [Å]') +
+  ylab('PFPD RMSD [Å]') +
+  coord_equal() +
+  scale_x_continuous(limits=c(0, 15.5), expand=c(0, 0))+
+  scale_y_continuous(limits=c(0, 15.5), expand=c(0, 0))+
+  geom_point(data=examples, aes(x=rmsBB_if.af2, y=rmsBB_if.pfpd),
+             pch=21, fill=NA, size=2, colour="black", stroke=2) +
+  geom_text(data=examples, 
+            aes(x=rmsBB_if.af2, y=rmsBB_if.pfpd, label=pdb), 
+            size=4, vjust=0.5, hjust=-0.4)+
+  theme(legend.position = c(0.8, 0.8), 
+        legend.title = element_blank())
+
+
+```
+

@@ -1,0 +1,359 @@
+---
+title: "Supplementary Figure 4 - Parameter optimization"
+author: "Julia Varga"
+date: "8/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(rlist)
+library(stringr)
+library(dplyr)
+library(reshape2)
+```
+
+```{r}
+##########################################################
+# load common variables like color, mapping, etc and libraries
+source('common_variables.R')
+##########################################################
+```
+
+```{r}
+calculate_binned_freq <- function(column, breaks, all_count, direction='forward'){
+  results <- list()
+  for (br in breaks){
+    if (direction == 'forward'){
+      count <- sum(column <= br) / all_count
+    }else{
+      count <- sum(column >= br) / all_count
+    }
+    results <- append(results, count)
+  }
+  return(unlist(results))
+}
+```
+
+```{r}
+# calulate frequencies separately for linker and separate chains
+breaks <- seq(0, 20, 0.5)
+af_data <- list()
+af_binned_freq <- list()
+af_binned_freq_seed_0 <- list()
+columns_to_group_by <- c('dataset', 'training')
+columns_to_summarize <- as.vector(unlist(c('rms_before_ref_super_rec_bb','rms_before_ref_super_rec',
+                          'rms_before_ref_super_pep_bb','rms_before_ref_super_pep',
+                          'rmsBB_if','rmsBB_allIF','rmsALL_if','rmsALL_allIF')))
+for (set in c('motif', 'nonmotif')){
+  for (e in c('env', 'no_env')){
+    for (type in c('linker', 'sep_chains')){
+        data <- read.csv(paste0('../../Data/min_', 
+                                type,'_', e, '_', set, '.csv'), 
+                         stringsAsFactors = F, header=T)
+        
+        for (recycle_select in unique(data$recycle)){
+          for (training_select in unique(data$training)){
+            small_data <- data %>% 
+                          filter(recycle == !!recycle_select) %>% 
+                          filter(training== !!training_select) %>% 
+                          filter(pdb_id!="1lvm_AE")
+            all_count = length(unique(small_data$pdb_id))
+            
+            # only 0 seed, as in the original
+            binned_freq_seed_0 <- data.frame(sapply(small_data %>% 
+                                                    filter(seed=='seed_0') %>% 
+                                                    select(-c(X, dataset, pdb_id, seed)), 
+                                  calculate_binned_freq, breaks=breaks, all_count=all_count))
+            
+            binned_freq_seed_0$env <- e
+            binned_freq_seed_0$type <- type
+            binned_freq_seed_0$dataset <- set
+            binned_freq_seed_0$breaks <- breaks
+            binned_freq_seed_0$training <- training_select
+            binned_freq_seed_0$recycle <- recycle_select
+            af_binned_freq_seed_0 <- list.append(af_binned_freq_seed_0, binned_freq_seed_0)
+          }
+        }
+        
+        data$env <- e
+        data$type <- type
+        af_data <- list.append(af_data, data)
+      } 
+    }
+  }
+af_data_df <- bind_rows(af_data)
+binned_freq_df_seed_0 <- do.call("rbind", af_binned_freq_seed_0)
+```
+
+```{r}
+fpd_rms_columns_map = setNames(
+               c("Peptide interface_bb", "Peptide interface", 
+                 'Full interface_bb', 'Full interface', 
+                 'Receptor_bb', 'Receptor',
+                 'Peptide structure_bb', 'Peptide structure'), 
+               c('rmsBB_if', 'rmsALL_if', 
+                 'rmsBB_allIF', 'rmsALL_allIF', 
+                 'rms_before_ref_super_rec_bb', 'rms_before_ref_super_rec', 
+                 'rms_before_ref_super_pep_bb', 'rms_before_ref_super_pep'))
+```
+
+```{r}
+melted_freq_df_seed_0 <- melt(binned_freq_df_seed_0, 
+                       id.vars = c('env', 'type', 'dataset', 'breaks', 'training', 'recycle'))
+melted_freq_df_seed_0$variable <- as.character(melted_freq_df_seed_0$variable)
+
+melted_freq_df_seed_0$variable <- fpd_rms_columns_map[melted_freq_df_seed_0$variable]
+melted_freq_df_seed_0$rms_type <- 'All atom'
+melted_freq_df_seed_0$rms_type[grepl('_bb$', melted_freq_df_seed_0$variable)] <- 'Backbone'
+melted_freq_df_seed_0$variable <- gsub('_bb', '', melted_freq_df_seed_0$variable)
+```
+
+```{r, fig.width=4, fig.height=4}
+supfig4A <-
+ggplot(melted_freq_df_seed_0 %>%
+               filter(recycle == 'recycle_9' & rms_type=='Backbone') %>% 
+              filter(training == FALSE & env == 'env') %>% 
+               filter(variable == 'Peptide interface'), 
+       aes(x=breaks, y=value, color=dataset, linetype=type)) +
+  geom_point(size=3)+
+  geom_line(aes(linetype=type), size=1) +
+  scale_linetype_manual(values=c('solid', 'dashed'),
+                        labels=c('linker'='polyG linker',
+                              'sep_chains'='Separate chains'))+
+  scale_color_manual(values=colorscale,  labels=c('motif'='Motif',
+                              'nonmotif'='Non-motif'), guide=F)+
+  scale_x_continuous(limits = c(0,5), expand = c(0,0))+
+  scale_y_continuous(limits = c(0,1), expand = c(0,0))+
+  xlab('RMSD [Å]') +
+  ylab('Cumulative ratio') +
+  theme(axis.title.y = element_text(size=15),
+        legend.text.align = 1,
+        legend.position =c(0.75, 0.12), 
+        legend.justification = c(0.5, 0.5),
+        legend.title = element_blank())
+```
+
+```{r}
+breaks <- seq(0, 20, 0.5)
+
+combined_binned_freq_recycles <- list()
+for (set in c('Motif', 'Non-motif')){
+    for (recycle in unique(af_data_df$recycle)){
+      small_data <- af_data_df %>% 
+                    filter(dataset==!!set & env == 'env' & seed == 'seed_0') %>% 
+                    filter(recycle == !!recycle) %>% 
+                    filter(training==FALSE)
+      all_count = length(unique(small_data$pdb_id))
+      
+      min_small_data <- data.frame(small_data %>% 
+                        select(-c(X, dataset, seed, recycle, training)) %>% 
+                        group_by(pdb_id) %>% 
+                        summarize_at('rmsBB_if', min))
+      
+      binned_freq <- data.frame(sapply(min_small_data %>% 
+                    select(-pdb_id), 
+                    calculate_binned_freq, breaks=breaks, all_count=all_count))
+  
+      binned_freq$env <- e
+      binned_freq$dataset <- set
+      binned_freq$breaks <- breaks
+      binned_freq$recycle <- small_data[1, 'recycle']
+      combined_binned_freq_recycles <- list.append(combined_binned_freq_recycles, binned_freq)
+  } 
+}
+combined_binned_freq_recycles_df <- do.call("rbind", combined_binned_freq_recycles)
+```
+
+```{r, fig.width=4, fig.height=4}
+supfig4B <-
+ggplot(combined_binned_freq_recycles_df, 
+       aes(x=breaks, y=rmsBB_if, color=dataset, shape=recycle)) +
+  geom_point(size=3)+
+  geom_line(size=1) +
+  scale_shape_manual(values=c('recycle_3'=2, 'recycle_9'=8),
+                     labels=c('recycle_3'='3 recycles', 'recycle_9'='9 recycles'))+
+  scale_color_manual(values=colorscale, guide=F)+
+  scale_x_continuous(limits = c(0,5), expand = c(0,0))+
+  scale_y_continuous(limits = c(0,1), expand = c(0,0), labels=scales::percent)+
+  xlab('RMSD [Å]') +
+  ylab('Cumulative ratio') +
+  theme(axis.title.y = element_text(size=15), 
+        legend.position =c(0.82, 0.12), 
+        legend.title = element_blank(),
+        legend.justification = c(0.5, 0.5),
+        legend.text.align = 1)+
+  guides(shape=guide_legend(nrow=2,byrow=TRUE))
+```
+
+```{r}
+combined_binned_freq_training <- list()
+for (set in c('Motif', 'Non-motif')){
+    for (training in c('TRUE', 'FALSE')){
+      small_data <- af_data_df %>% 
+                    filter(dataset==!!set & env == 'env' & seed == 'seed_0') %>% 
+                    filter(training==!!training & recycle=='recycle_9')
+      all_count = length(unique(small_data$pdb_id))
+      
+      min_small_data <- data.frame(small_data %>% 
+                        select(-c(X, dataset, seed, recycle, training)) %>% 
+                        group_by(pdb_id) %>% 
+                        summarize_at('rmsBB_if', min))
+      
+      binned_freq <- data.frame(sapply(min_small_data %>% 
+                    select(-pdb_id), 
+                    calculate_binned_freq, breaks=breaks, all_count=all_count))
+  
+      binned_freq$dataset <- set
+      binned_freq$breaks <- breaks
+      binned_freq$training <- training
+      combined_binned_freq_training <- list.append(combined_binned_freq_training, binned_freq)
+  } 
+}
+combined_binned_freq_training_df <- do.call("rbind", combined_binned_freq_training)
+```
+
+```{r, fig.width=4, fig.height=4}
+supfig4C <-
+ggplot(combined_binned_freq_training_df, 
+       aes(x=breaks, y=rmsBB_if, color=dataset, shape=training)) +
+  geom_point(size=3)+
+  geom_line(size=1) +
+  scale_shape_manual(values=c('TRUE'=3, 'FALSE'=4),
+                     labels=c('TRUE'='Drop-out', 'FALSE'='No drop-out'))+
+  scale_color_manual(values=colorscale, guide=F)+
+  scale_x_continuous(limits = c(0,5), expand = c(0,0))+
+  scale_y_continuous(limits = c(0,1), expand = c(0,0), labels=scales::percent)+
+  xlab('RMSD [Å]') +
+  ylab('Cumulative ratio') +
+  theme(axis.title.y = element_text(size=15), 
+        legend.position = c(0.72, 0.17), 
+        legend.title = element_blank(),
+        legend.text.align = 1, 
+        legend.text = element_text(size=8),
+        legend.key.height=unit(0.6,"line"),
+        axis.title = element_text(size=10))+
+  guides(shape=guide_legend(nrow=2,byrow=TRUE))
+```
+
+```{r}
+combined_binned_freq_env <- list()
+for (set in c('Motif', 'Non-motif')){
+    for (e in c('env', 'no_env')){
+      small_data <- af_data_df %>% 
+                    filter(dataset==!!set & seed == 'seed_0') %>% 
+                    filter(env==!!e & recycle=='recycle_9' & training==FALSE)
+      all_count = length(unique(small_data$pdb_id))
+      
+      min_small_data <- data.frame(small_data %>% 
+                        select(-c(X, dataset, seed, recycle, training)) %>% 
+                        group_by(pdb_id) %>% 
+                        summarize_at('rmsBB_if', min))
+      
+      binned_freq <- data.frame(sapply(min_small_data %>% 
+                    select(-pdb_id), 
+                    calculate_binned_freq, breaks=breaks, all_count=all_count))
+  
+      binned_freq$dataset <- set
+      binned_freq$breaks <- breaks
+      binned_freq$env <- e
+      combined_binned_freq_env <- list.append(combined_binned_freq_env, binned_freq)
+  } 
+}
+combined_binned_freq_env_df <- do.call("rbind", combined_binned_freq_env)
+```
+
+```{r, fig.width=4, fig.height=4}
+supfig4D <-
+ggplot(combined_binned_freq_env_df, 
+       aes(x=breaks, y=rmsBB_if, color=dataset, shape=env)) +
+  geom_point(size=3)+
+  geom_line(size=1) +
+  scale_shape_manual(values=c('env'=0, 'no_env'=5),
+                     labels=c('env'='Env', 'no_env'='No env'))+
+  scale_color_manual(values=colorscale, guide=F)+
+  scale_x_continuous(limits = c(0,5), expand = c(0,0))+
+  scale_y_continuous(limits = c(0,1), expand = c(0,0), labels=scales::percent)+
+  xlab('RMSD [Å]') +
+  ylab('') +
+  theme(axis.title.y = element_text(size=15), 
+        legend.position = c(0.75, 0.17), 
+        legend.title = element_blank(),
+        legend.text.align = 1, 
+        legend.text = element_text(size=8),
+        legend.key.height=unit(0.6,"line"),
+        axis.title = element_text(size=10))+
+  guides(shape=guide_legend(nrow=2,byrow=TRUE))
+```
+
+```{r}
+combined_binned_freq_seed <- list()
+for (set in c('Motif', 'Non-motif')){
+    for (seed in list(c('seed_0'), c('seed_0', 'seed_1', 'seed_2', 'seed_3', 'seed_5'))){
+      small_data <- af_data_df %>% 
+                    filter(dataset==!!set & seed %in% !!seed ) %>% 
+                    filter(env=='env' & recycle=='recycle_9' & training==FALSE)
+      all_count = length(unique(small_data$pdb_id))
+      
+      min_small_data <- data.frame(small_data %>% 
+                        select(-c(X, dataset, seed, recycle, training)) %>% 
+                        group_by(pdb_id) %>% 
+                        summarize_at('rmsBB_if', min))
+      
+      binned_freq <- data.frame(sapply(min_small_data %>% 
+                    select(-pdb_id), 
+                    calculate_binned_freq, breaks=breaks, all_count=all_count))
+  
+      binned_freq$dataset <- set
+      binned_freq$breaks <- breaks
+      binned_freq$seed <- as.character(length(seed))
+      combined_binned_freq_seed <- list.append(combined_binned_freq_seed, binned_freq)
+  } 
+}
+combined_binned_freq_seed_df <- do.call("rbind", combined_binned_freq_seed)
+```
+
+```{r, fig.width=4, fig.height=4}
+supfig4E <-
+ggplot(combined_binned_freq_seed_df, 
+       aes(x=breaks, y=rmsBB_if, color=dataset, shape=seed)) +
+  geom_point(size=3)+
+  geom_line(size=1) +
+  scale_shape_manual(values=c('1'=12, '5'=13),
+                     labels=c('1'='1 seed', '5'='5 seeds'))+
+  scale_color_manual(values=colorscale, guide=F)+
+  scale_x_continuous(limits = c(0,5), expand = c(0,0))+
+  scale_y_continuous(limits = c(0,1), expand = c(0,0), labels=scales::percent)+
+  xlab('RMSD [Å]') +
+  ylab('') +
+  theme(axis.title.y = element_text(size=15), 
+        legend.position = c(0.75, 0.17), 
+        legend.title = element_blank(),
+        legend.text.align = 1, 
+        legend.text = element_text(size=8),
+        legend.key.height=unit(0.6,"line"),
+        axis.title = element_text(size=10))+
+  guides(shape=guide_legend(nrow=2,byrow=TRUE))
+```
+
+```{r fig.width=8, fig.height=8}
+rel_widths = c(0.45, 0.05, 0.45)
+
+legend <- get_legend(supfig4A+
+                       scale_color_manual(values=colorscale, labels=c('Motif', 'Non-motif'))+
+                       scale_linetype_manual(values=c('solid', 'dashed'), guide=F)+
+                       theme(legend.position = 'bottom', 
+                        legend.title = element_blank(),
+                        legend.text = element_text(size=14)))
+row_1 <- plot_grid(supfig4A, NULL, supfig4B, ncol=3, 
+                   rel_widths=rel_widths, labels=c('A', '', 'B'))
+row_2 <- plot_grid(NULL)
+row_3 <- plot_grid(supfig4C, supfig4D, supfig4E, ncol=3, 
+                   labels=c('C', 'D', 'E'))
+supfig4 <- cowplot::plot_grid(row_1, row_2, row_3, legend,
+                              nrow=4, 
+                              rel_heights = c(0.6, 0.05, 0.45, 0.1))
+supfig4
+```
+

@@ -1,0 +1,161 @@
+---
+title: "Figure 3 - Interface characteristics"
+author: "Julia Varga"
+date: '2021 10 28 '
+output: html_document
+---
+
+```{r}
+##########################################################
+# load common variables like color, mapping, etc and libraries
+source('common_variables.R')
+##########################################################
+
+##########################################################
+# load data
+source('load_data.R')
+##########################################################
+```
+
+## Figure 3A - Binding pocket recovery
+```{r}
+# get pfpd data
+pfpd_pocket_data <- read.csv('../../Data/pfpd_pocket_data.csv', stringsAsFactors = F, header = T)
+pfpd_pocket_data$dataset = map_datasets[pfpd_pocket_data$dataset]
+
+all_pfpd_pocket_data_max <- data.frame(pfpd_pocket_data %>% 
+                                         group_by(dataset, pdb_id) %>% 
+                                         summarize_at('common_residues_percent', max))
+all_pfpd_pocket_data_max <- all_pfpd_pocket_data_max %>% 
+                            filter(pdb_id %in% !!final_pfpd_list)
+```
+
+```{r}
+# merge AF2 and PFPD tables
+all_pfpd_pocket_data_max$method <- 'PFDP'
+all_rms_data_combined$method <- 'AF2'
+all_rms_data_combined$pdb <- substr(all_rms_data_combined$pdb_id, 1, 4)
+
+all_rms_data_combined <- all_rms_data_combined %>% 
+  select(dataset, pdb, common_residues_percent, method )
+colnames(all_rms_data_combined)[2] <- 'pdb_id'
+
+all_pfpd_pocket_data_max <- all_pfpd_pocket_data_max %>% 
+  select(dataset, pdb_id, common_residues_percent, method )
+
+all_pocket_data <- rbind(all_rms_data_combined, all_pfpd_pocket_data_max)
+```
+
+```{r}
+binding_pocket_plot <- ggplot(data = all_pocket_data %>% filter(dataset!='approved'),
+       aes(y = common_residues_percent, x = method)) +
+  geom_point(aes(color=dataset, group=dataset),
+             position = position_jitterdodge(), 
+             size = 2) +
+  geom_boxplot(aes(fill = dataset, color=dataset), alpha = 0.25, outlier.shape = NA)+
+  guides(fill = FALSE) +
+  guides(color = FALSE) +
+  scale_color_manual(values = color_scale_for_raincloud) +
+  scale_fill_manual(values = fill_scale_for_raincloud) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw() +
+  raincloud_theme +
+  xlab("") +
+  ylab('Recovered pocket residues') +
+  theme(axis.line.y = element_blank(),
+        axis.line.x = element_line(color='darkgrey'),
+        axis.ticks.y = element_blank(),
+        aspect.ratio = 1, 
+        axis.text = element_text(size=14),
+        axis.text.x = element_text(color='black')
+        ) 
+```
+
+## Figure 3C - PolyA peptide
+```{r}
+
+# load poly-A data
+poly_A_nonmotif_sep_data <- read.csv('../../Data/min_sep_chains_polyA_nonmotif_new_columns.csv', stringsAsFactors = F)
+poly_A_motif_sep_data <- read.csv('../../Data/min_sep_chains_polyA_motif_new_columns.csv', stringsAsFactors = F)
+poly_A_nonmotif_linker <- read.csv('../../Data/min_linker_polyA_nonmotif_new_columns.csv', stringsAsFactors = F)
+poly_A_motif_linker <- read.csv('../../Data/min_linker_polyA_motif_new_columns.csv', stringsAsFactors = F)
+
+
+all_polyA_sep_data <- do.call("rbind", list(poly_A_nonmotif_sep_data, poly_A_motif_sep_data ))
+all_polyA_sep_data$link_type <- 'sep_chains'
+
+all_polyA_linker_data <- do.call("rbind", list(poly_A_nonmotif_linker, poly_A_motif_linker ))
+all_polyA_linker_data$link_type <- 'linker'
+
+all_polyA_rms_data <- rbind(all_polyA_sep_data, all_polyA_linker_data) %>% filter(pdb_id!='1lvm_AE')
+all_polyA_rms_data_combined <- data.frame(all_polyA_rms_data %>%
+                                            group_by(pdb_id, dataset) %>%
+                                            summarize_at(vars(all_of(colnames_to_eval)), min))
+```
+
+```{r}
+# calculate binned frequences
+list_of_dfs_combined_polyA <- list()
+for (dataset in unique(all_polyA_rms_data_combined$dataset)){
+  small_data <- all_polyA_rms_data_combined %>% filter(dataset==!!dataset)
+  
+  for (col in colnames_to_eval[!grepl('(common)|(CAPRI)', colnames_to_eval)]){
+    column_to_eval <- small_data %>% pull(!!col)
+    frequencies <- data.frame(calculate_binned_freq(column_to_eval, breaks, length(column_to_eval)))
+    colnames(frequencies) <- c('frequency')
+    frequencies$rms_type <- col
+    frequencies$dataset <- dataset
+    frequencies$breaks <- breaks
+    
+    list_of_dfs_combined_polyA <- list.append(list_of_dfs_combined_polyA, frequencies)
+  }
+}
+
+all_frequencies_combined_polyA <- do.call("rbind", list_of_dfs_combined_polyA)
+all_frequencies_combined_polyA$rms_type <- rms_mapping[all_frequencies_combined_polyA$rms_type]
+all_frequencies_combined_polyA$rms_atoms <- 'All atom'
+all_frequencies_combined_polyA$rms_atoms[grepl('_bb$', all_frequencies_combined_polyA$rms_type)] <- 'Backbone'
+all_frequencies_combined_polyA$rms_type <- gsub('_bb', '', all_frequencies_combined_polyA$rms_type)
+all_frequencies_combined_polyA$rms_atoms <- factor(all_frequencies_combined_polyA$rms_atoms, 
+                                    levels=c('Backbone','All atom'))
+
+# add LNR dataset performance
+all_frequencies_combined_polyA$method <- 'AlphaFold'
+all_frequencies_combined_polyA$link_type <- 'combined'
+all_frequencies_combined_polyA$exp_type <- 'polyA'
+
+all_frequencies_combined_polyA_with_final <- rbind(all_frequencies_combined %>% filter(dataset != 'approved'), 
+                                                   all_frequencies_combined_polyA)
+data_frame_polyA <- all_frequencies_combined_polyA %>% select(breaks, frequency, rms_type, rms_atoms, dataset)
+data_frame_polyA$label <- 'A'
+```
+
+```{r}
+polyA_bb_rmsbbif <-
+  ggplot(all_frequencies_combined_polyA_with_final %>% 
+           filter(rms_atoms=='Backbone') %>% 
+           filter(rms_type=='Peptide interface'), 
+         aes(x=breaks, y=frequency, color=dataset)) +
+  geom_point(size=1, aes()) +
+  geom_line(size=1.25, aes(linetype=exp_type)) +
+  geom_point(size=4, data=all_frequencies_combined_polyA_with_final %>% 
+               filter(exp_type=='polyA') %>% 
+               filter(rms_atoms=='Backbone') %>% 
+               filter(rms_type=='Peptide interface'), 
+             color='white') +
+  geom_label(data = data_frame_polyA %>%
+               filter(rms_atoms=='Backbone') %>%
+               filter(rms_type=='Peptide interface'),
+             aes(x=breaks, y=frequency, label=label), size=4, show.legend = FALSE,
+             fill=NA, label.size=NA, alpha=1, label.padding = unit(0, "lines")) +
+  scale_linetype_manual(values = c('final' = 'solid', 'polyA' = 'solid'), guide=F) +
+  ylab('Cumulative ratio') +
+  xlab('RMSD [Å]') +
+  scale_x_continuous(limits=c(0, 5), expand=c(0,0)) +
+  scale_y_continuous(limits=c(0, 1), expand=c(0,0), labels=percent) +
+  scale_color_manual(values=colorscale) +
+  theme(aspect.ratio=1, 
+        axis.text = element_text(size=14),
+        axis.title = element_text(size=15))
+```
+

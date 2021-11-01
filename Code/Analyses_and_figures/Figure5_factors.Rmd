@@ -1,0 +1,242 @@
+---
+title: "Figure 5 - Interface characteristics"
+author: "Julia Varga"
+date: '2021 10 28 '
+output: html_document
+---
+
+```{r}
+##########################################################
+# load common variables like color, mapping, etc and libraries
+source('common_variables.R')
+##########################################################
+
+##########################################################
+# load data
+source('load_data.R')
+##########################################################
+```
+
+```{r}
+# merge RMSD-s with length and secondary structure annotations
+secstr_length_data_org <- read.csv('../../Data/secondary_structure_and_length.tsv', sep='\t', stringsAsFactors = F)
+
+secstr_length_data <- secstr_length_data_org %>% filter(pfpd_set=="False") %>% 
+  select(final_id, final_chain, final_peptide, pep_is_helix, 
+         pep_is_strand, pep_is_combined, pep_is_coil)
+
+secstr_length_data <- melt(secstr_length_data, 
+                           id.vars = c('final_id', 'final_chain', 'final_peptide')) %>% 
+                           filter(value=='True')
+secstr_length_data$pdb_id <- paste0(secstr_length_data$final_id, "_", 
+                                    secstr_length_data$final_chain,
+                                    secstr_length_data$final_peptide)
+
+rms_with_secstr_length <- merge(secstr_length_data, all_rms_data_combined, by=c('pdb_id'), all.y = F)
+
+# only 1 combined structure, we put it among the helices
+rms_with_secstr_length$variable[rms_with_secstr_length$variable=='pep_is_combined'] <- 'pep_is_helix'
+```
+
+# Figure 5A - Peptide length
+```{r}
+# prepare data
+length_data <- secstr_length_data_org %>% filter(pfpd_set=="False") %>% 
+  select(final_id, final_chain, final_peptide, peptide_length)
+length_data$peptide_length <- as.integer(length_data$peptide_length)
+
+length_data$pdb_id <- paste0(length_data$final_id, "_", 
+                             length_data$final_chain,
+                             length_data$final_peptide)
+rms_with_length <- merge(length_data, all_rms_data_combined, by=c('pdb_id'), all.y = F) %>% 
+                    select(pdb_id, peptide_length, !!colnames_to_eval[!grepl('(common)|(CAPRI)', colnames_to_eval)])
+
+melt_rms_with_length <- melt(rms_with_length, id.vars = c('pdb_id', 'peptide_length'))
+melt_rms_with_length$rms_type <- rms_mapping[melt_rms_with_length$variable]
+melt_rms_with_length$rms_atoms <- 'All atom'
+melt_rms_with_length$rms_atoms[grepl('_bb$', melt_rms_with_length$rms_type)] <- 'Backbone'
+melt_rms_with_length$rms_type <- gsub('_bb', '', melt_rms_with_length$rms_type)
+melt_rms_with_length$rms_atoms <- factor(melt_rms_with_length$rms_atoms, 
+                                           levels=c('Backbone','All atom'))
+
+
+melt_rms_with_length$capped <- 'Not capped'
+melt_rms_with_length$capped[melt_rms_with_length$value > 20] <- '>= 20'
+melt_rms_with_length$new_value <- melt_rms_with_length$value
+melt_rms_with_length$new_value[melt_rms_with_length$value > 20] <- 19.9
+```
+
+```{r}
+length_bb_rmsbbif <- ggplot(melt_rms_with_length %>%
+                            filter(rms_type!='Binding residue recovery')%>%
+                            filter(rms_type!='Receptor structure')%>%
+                            filter(rms_type!='Full interface') %>% 
+                            filter(rms_atoms=='Backbone') %>% 
+                            filter(rms_type=='Peptide interface'), 
+                          aes(y=new_value, x=peptide_length, 
+                              shape=capped, color=dataset)) +
+  geom_jitter(size=2.25, alpha=0.4, width=0.15) +
+  scale_shape_manual(values=c(17, 16), labels=c('>=20 Å', '<  20 Å'))+
+  scale_color_manual(values=c("#FFBF00", "black"), labels=c('>=20 Å', '<  20 Å'), guide=F)+
+  xlab('Peptide length') +
+  ylab('RMSD [Å]') +
+  scale_y_continuous(limits=c(0, 21), expand=c(0,0)) +
+  scale_x_continuous(limits=c(3, 25), expand=c(0,0), breaks = seq(4, 24, 4)) +
+  theme(aspect.ratio=1, 
+        legend.position = c(0.78, 0.65),
+        legend.title=element_blank(),
+        legend.text = element_text(size=8),
+        axis.title = element_text(size=10),
+        legend.key.height=unit(0.5,"line"),
+        legend.key.width=unit(0.45,"line"))
+
+length_bb_rmsbbif
+```
+
+## Figure 5B - Secondary structure
+```{r}
+# calculate binned frequencies
+list_of_dfs_secstr <- list()
+for (secstr in unique(rms_with_secstr_length$variable)){
+  small_data <- rms_with_secstr_length %>% filter(variable==!!secstr)
+  
+  for (col in colnames_to_eval[!grepl('(common)|(CAPRI)', colnames_to_eval)]){
+    if (col != 'common_residues_percent'){
+      column_to_eval <- small_data %>% pull(!!col) %>% na.omit()
+      frequencies <- data.frame(calculate_binned_freq(column_to_eval, breaks, length(column_to_eval)))
+      colnames(frequencies) <- c('frequency')
+      frequencies$secstr <- as.character(secstr)
+      frequencies$rms_type <- col
+      frequencies$breaks <- breaks
+      
+      list_of_dfs_secstr <- list.append(list_of_dfs_secstr, frequencies)
+    }  
+  }
+}
+
+all_frequencies_secstr <- do.call("rbind", list_of_dfs_secstr)
+all_frequencies_secstr$rms_type <- rms_mapping[all_frequencies_secstr$rms_type]
+all_frequencies_secstr$rms_atoms <- 'All atom'
+all_frequencies_secstr$rms_atoms[grepl('_bb$', all_frequencies_secstr$rms_type)] <- 'Backbone'
+all_frequencies_secstr$rms_type <- gsub('_bb', '', all_frequencies_secstr$rms_type)
+
+all_frequencies_secstr$secstr <- secstr_mapping[all_frequencies_secstr$secstr]
+all_frequencies_secstr$rms_atoms <- factor(all_frequencies_secstr$rms_atoms, 
+                                           levels=c('Backbone','All atom'))
+
+colorscale_secstr <- c("Helix" = "#E56399", 
+                       "Strand" = '#04617B', 
+                       'Coil' = "grey45")
+```
+
+```{r}
+# plot figure
+secstr_bb_rmsbbif <- ggplot(all_frequencies_secstr %>% 
+                              filter(rms_atoms=='Backbone') %>% 
+                              filter(rms_type=='Peptide interface'), 
+                            aes(x=breaks, y=frequency, color=secstr, shape=secstr)) +
+  geom_point(size=1.50) +
+  geom_line(size=1) +
+  ylab('Cumulative ratio') +
+  xlab('RMSD [Å]') +
+  scale_x_continuous(limits=c(0, 5), expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,0), limits=c(0,1), labels=percent) +
+  scale_color_manual(values=colorscale_secstr) +
+  scale_shape_manual(values=c('Coil'=4, 'Strand'=15, 'Helix'=17))+
+  theme(aspect.ratio=1, 
+        legend.position = c(0.75, 0.17), 
+        legend.title = element_blank(),
+        legend.text.align = 1, 
+        legend.text = element_text(size=8),
+        legend.key.height=unit(0.6,"line"),
+        axis.title = element_text(size=10))
+secstr_bb_rmsbbif
+```
+
+## Figure 5D - PTM+LIG structures
+```{r}
+##########################################################
+# load data
+not_approved_sep_chains_data <- read.csv('../../Data/min_sep_chains_env_not_approved_new_columns.csv', stringsAsFactors = F)
+not_approved_linker_data <- read.csv('../../Data/min_linker_env_not_approved_new_columns.csv', stringsAsFactors = F)
+not_approved_linker_data$link_type <- 'linker'
+not_approved_sep_chains_data$link_type <- 'sep_chains'
+
+all_rms_data_not_approved <- rbind(not_approved_sep_chains_data, not_approved_linker_data)
+all_rms_data_combined_na <- data.frame(all_rms_data_not_approved %>% 
+                                         group_by(pdb_id, dataset) %>% 
+                                         summarize_at(vars(all_of(colnames_to_eval)), min))
+all_rms_data_combined_na$dataset <- 'NA'
+colnames_to_eval_na <- colnames_to_eval[!grepl('(common)|(CAPRI)', colnames_to_eval)]
+
+annotation <- read.csv('../../Data/not_approved_modeled_with_comments.tsv', sep='\t', header=T)
+annotation$final_pdb <- substr(str_replace(paste0(annotation$pdb_id, annotation$pdb_replacement), 
+                                    '-', ''), 1, 4)
+all_rms_data_combined_na$pdb <- substr(all_rms_data_combined_na$pdb_id, 1, 4)
+all_rms_data_combined_na_annotated <- merge(all_rms_data_combined_na %>% 
+                                              filter(pdb %in% all_rms_data_combined_na$pdb), 
+                                            annotation %>% select(final_pdb, class), 
+                                            by.x='pdb', by.y='final_pdb')
+
+##########################################################
+```
+
+```{r}
+# calculate binned frequencies
+list_of_dfs_combined_na <- list()
+for (col in colnames_to_eval_na){
+  column_to_eval <- all_rms_data_combined_na %>% pull(!!col)
+  frequencies <- data.frame(calculate_binned_freq(column_to_eval, breaks, length(column_to_eval)))
+  colnames(frequencies) <- c('frequency')
+  frequencies$rms_type <- col
+  frequencies$dataset <- dataset
+  frequencies$breaks <- breaks
+  
+  list_of_dfs_combined_na <- list.append(list_of_dfs_combined_na, frequencies)
+}
+
+all_frequencies_combined_na <- do.call("rbind", list_of_dfs_combined_na)
+all_frequencies_combined_na$rms_type <- rms_mapping[all_frequencies_combined_na$rms_type]
+all_frequencies_combined_na$rms_atoms <- 'All atom'
+all_frequencies_combined_na$rms_atoms[grepl('_bb$', all_frequencies_combined_na$rms_type)] <- 'Backbone'
+all_frequencies_combined_na$rms_type <- gsub('_bb', '', all_frequencies_combined_na$rms_type)
+all_frequencies_combined_na$rms_atoms <- factor(all_frequencies_combined_na$rms_atoms, 
+                                                levels=c('Backbone','All atom'))
+
+# add 'approved' dataset performance
+all_frequencies_combined_na$method <- 'AlphaFold'
+all_frequencies_combined_na$link_type <- 'combined'
+all_frequencies_combined_na$exp_type <- 'na'
+all_frequencies_combined$class <- NULL
+
+all_frequencies_combined_na_with_final <- rbind(all_frequencies_combined %>% filter(dataset == 'approved'), 
+                                                all_frequencies_combined_na)
+```
+
+```{r}
+na_bb_rmsbbif <-  ggplot(all_frequencies_combined_na_with_final %>% 
+                           filter(rms_atoms=='Backbone') %>% 
+                           filter(rms_type=='Peptide interface'), 
+                         aes(x=breaks, y=frequency, color=dataset, shape=dataset)) +
+  geom_point(size=1, aes(color=dataset)) +
+  geom_line(size=0.75, aes(color=dataset)) +
+  # ylab('Cumulative ratio') +
+  ylab('') +
+  xlab('RMSD [Å]') +
+  scale_y_continuous(labels=percent, limits=c(0, 1), expand=c(0,0)) +
+  scale_x_continuous(limits=c(0, 5), expand=c(0,0)) +
+  scale_color_manual(values = colorscale,
+                     labels=c('approved'='LNR', 'NA'='PTM+LIG')) +
+  scale_shape_manual(values = c('approved'=19, 'NA'=25), 
+                     labels=c('approved'='LNR', 'NA'='PTM+LIG'))+
+  theme(aspect.ratio=1,
+        legend.position = c(0.68, 0.17), 
+        legend.title = element_blank(),
+        legend.text.align = 1, 
+        legend.text = element_text(size=8),
+        legend.key.height=unit(0.6,"line"),
+        axis.title = element_text(size=10)) 
+
+na_bb_rmsbbif
+```
+

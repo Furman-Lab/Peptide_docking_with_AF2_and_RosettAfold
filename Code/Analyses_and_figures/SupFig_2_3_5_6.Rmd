@@ -1,0 +1,153 @@
+---
+title: "Supplementary Figures 2,3,5 and 6"
+author: "Julia Varga"
+date: '2021 10 28 '
+output: html_document
+---
+
+```{r}
+##########################################################
+# load common variables like color, mapping, etc and libraries
+source('common_variables.R')
+##########################################################
+
+##########################################################
+# load data
+source('load_data.R')
+##########################################################
+```
+
+## Supplementary Figure 2 - CAPRI measures
+```{r}
+
+capri_names <- as_labeller(c('CAPRI interface' = "I-rms", 'Peptide' = "L-rms"))
+capri_cutoffs <- data.frame("rms_type"=c('CAPRI interface', 'CAPRI interface', 'CAPRI interface', 
+                   'Peptide', 'Peptide', 'Peptide'),
+                   cutoff=c(0.5, 1, 2, 1, 2, 4),
+                   type=c('high', 'medium', 'acceptable'))
+
+capri_cumulative <-
+  ggplot(capri_all_frequencies_combined %>% filter(rms_atoms=='Backbone'), 
+         aes(x=breaks, y=frequency, color=dataset)) +
+  geom_point(size=1.25) +
+  geom_line(size=1) +
+  ylab('Cumulative ratio') +
+  xlab('RMSD [Å]') +
+  scale_x_continuous(limits = c(0, 5), expand=c(0,0)) +
+  scale_color_manual(values = colorscale, labels=c('approved'='LNR')) +
+  scale_y_continuous(labels=percent) +
+  facet_grid(cols=vars(rms_type), scales = 'free', labeller = capri_names) +
+  theme(legend.position = 'bottom',
+        legend.title = element_blank())+
+  geom_vline(data=capri_cutoffs, aes(xintercept=cutoff, linetype=type))  +
+  scale_linetype_manual(values=c('high'='dotted', 'medium'='dotdash', 'acceptable'='dashed'), guide=F)
+
+ggsave('figures/capri_cumulative_combined.png', capri_cumulative, dpi = 300, height = 3, width = 5)
+saveRDS(capri_cumulative, 'figures/capri_cumulative_combined.Rds')
+```
+
+## Supplementary Figure 3 - polyG linker vs. separate chains
+```{r}
+sep_vs_link <- all_rms_data %>% select(pdb_id, rmsBB_if, link_type, dataset) 
+sep_vs_link_to_scatter <- dcast(sep_vs_link, dataset+pdb_id~link_type, value.var = 'rmsBB_if')
+sep_vs_link_to_scatter$capped <- 'N'
+sep_vs_link_to_scatter$capped[sep_vs_link_to_scatter$linker > 19.9] <- 'Y'
+sep_vs_link_to_scatter$linker[sep_vs_link_to_scatter$linker > 19.9] <- 19.9
+sep_vs_link_to_scatter$capped[sep_vs_link_to_scatter$sep_chains > 19.9] <- 'Y'
+sep_vs_link_to_scatter$sep_chains[sep_vs_link_to_scatter$sep_chains > 19.9] <- 19.9
+```
+
+```{r}
+sep_vs_link_scatterplot <- ggplot(sep_vs_link_to_scatter, 
+                                  aes(x=linker, y=sep_chains, 
+                                      color=dataset, shape=capped))+
+  geom_point(size=4, alpha=0.6) +
+  coord_equal() +
+  scale_shape_manual(values=c(19, 17), name='types', 
+                     labels=c('N'='<20 Å', 'Y'='>=20 Å'))+
+  geom_hline(yintercept = 2.5, linetype='dashed', color='darkgray') +
+  geom_hline(yintercept = 5, color='darkgray') +
+  geom_vline(xintercept = 2.5, linetype='dashed', color='darkgray') +
+  geom_vline(xintercept = 5, color='darkgray') +
+  ylab("Linker RMSD [Å]") +
+  xlab("Separate chains RMSD [Å]") +
+  scale_color_manual(values = colorscale,
+                     labels=c('approved'='LNR')) +
+  scale_x_continuous(limits=c(0,20.5), expand = c(0,0))+
+  scale_y_continuous(limits=c(0,20.5), expand = c(0,0))+
+  annotate('text', x=20, y=2.6, hjust=1, vjust=0,
+           label='near-native', color='darkgrey') +
+  theme(legend.position = 'bottom',
+        legend.title = element_blank())
+```
+
+## Supplementary Figure 5 - Peptide backbone interface vs peptide structure & receptor structure
+```{r}
+melted_data_rec_pep_bb_if <- melt(all_rms_data %>% 
+                                    select(rms_before_ref_align_seq_pep_bb, rms_before_ref_align_seq_rec_bb, 
+                                           rmsBB_if, dataset, pdb_id) ,
+                                  id.vars=c('pdb_id', 'dataset', 'rmsBB_if'),
+                                  variable.name = 'rms_type',
+                                  measure_vars=c('rms_before_ref_align_seq_pep_bb',
+                                                 'rms_before_ref_align_seq_rec_bb')
+                                    )
+melted_data_rec_pep_bb_if$rms_type <- as.character(melted_data_rec_pep_bb_if$rms_type)
+melted_data_rec_pep_bb_if$rms_type <- rms_mapping[melted_data_rec_pep_bb_if$rms_type]
+melted_data_rec_pep_bb_if$rms_type <- gsub('_bb', '', melted_data_rec_pep_bb_if$rms_type)
+
+melted_data_rec_pep_bb_if$capped <- '<15 Å'
+melted_data_rec_pep_bb_if$capped[melted_data_rec_pep_bb_if$value > 15] <- '>=15 Å'
+melted_data_rec_pep_bb_if$capped[melted_data_rec_pep_bb_if$rmsBB_if > 15] <- '>=15 Å'
+
+melted_data_rec_pep_bb_if$value[melted_data_rec_pep_bb_if$value > 15] <- 14.9
+melted_data_rec_pep_bb_if$rmsBB_if[melted_data_rec_pep_bb_if$rmsBB_if > 15] <- 14.9
+```
+
+```{r}
+# rmsBB_if vs rms receptor and peptide
+rms_pep_rec_vs_rmsbb_if <- ggplot(melted_data_rec_pep_bb_if %>% arrange(dataset), 
+                                  aes(x=rmsBB_if, y=value, color=dataset, shape=capped)) +
+  geom_point(size=4, alpha=0.4) +
+  ylab('Backbone RMSD [Å]') +
+  xlab('Peptide interface backbone RMSD [Å]') +
+  scale_y_continuous(limits = c(0, 15), expand=c(0,0)) +
+  scale_x_continuous(limits = c(0, 15.5), expand=c(0,0)) +
+  scale_color_manual(values = colorscale, labels=c('approved'='LNR'))+
+  scale_shape_manual(values = c('<15 Å' = 16, '>=15 Å' = 17))+
+  geom_abline(slope=1, intercept=0, color='grey70', size=0.5) +
+  geom_hline(yintercept = 2.5, linetype='dashed', color='darkgrey') +
+  geom_vline(xintercept = 2.5, linetype='dashed', color='darkgrey')+
+  annotate('text', x=14.5, y=2.6, hjust=1, vjust=0,
+           label='near-native', color='darkgrey')+
+  facet_grid(cols=vars(rms_type))+
+  theme(legend.position = 'bottom',
+        legend.title = element_blank())
+```
+
+## Supplementary Figure 6
+```{r}
+all_rms_data_xmer <- all_rms_data %>% 
+  select(pdb_id, dataset, max_in1A, max_in2.5A, max_in4A)
+
+melted_xmer <- melt(all_rms_data_xmer, id.vars = c('pdb_id', 'dataset'))
+melted_xmer$variable <- distance_mapping[melted_xmer$variable]
+counts_xmer <- count(melted_xmer, c('dataset', 'value', 'variable'))
+
+bestXmer_plot_per_length <-
+  ggplot(counts_xmer, aes(x=value, y=freq, color=dataset)) +
+  geom_point(size=0.85) +
+  geom_line(size=1) +
+  ylab('Number of complexes') +
+  xlab('Longest K-mer') +
+  scale_x_continuous(limits=c(4, 16), expand=c(0,0)) +
+  scale_y_continuous(limits=c(0, 20), expand=c(0,0)) +
+  scale_color_manual(values=colorscale,
+                     labels=c('approved' = 'LNR',
+                              'Motif'='Motif', 
+                              'Non-motif'='Non-motif')) +
+  theme(aspect.ratio=1,
+        legend.position = 'bottom',
+        legend.title = element_blank()) +
+  facet_grid(cols=vars(variable), scales = 'free') 
+```
+
