@@ -1,0 +1,13 @@
+dataset	partner	rms_threshold [Angstrom]	TN	FP	FN	TP	total_size	spearman rho	spearman rho p-value
+Motif	peptide	2.5	45	0	6	20	71	0.79	1.88E-16
+Motif	peptide	None	49	0	6	22	77	0.8	4.16E-18
+Motif	receptor	2.5	119	6	16	14	155	0.7	3.17E-24
+Motif	receptor	None	133	6	16	14	169	0.7	6.81E-26
+Non-motif	peptide	2.5	16	1	6	8	31	0.54	1.69E-03
+Non-motif	peptide	None	39	6	17	17	79	0.44	5.37E-05
+Non-motif	receptor	2.5	58	1	8	6	73	0.56	2.94E-07
+Non-motif	receptor	None	183	2	26	8	219	0.42	1.40E-10
+LNR	peptide	2.5	205	11	30	84	330	0.76	7.82E-64
+LNR	peptide	None	420	20	105	109	654	0.51	2.89E-45
+LNR	receptor	2.5	650	16	46	68	780	0.65	1.72E-95
+LNR	receptor	None	1405	37	175	75	1692	0.34	5.86E-48
