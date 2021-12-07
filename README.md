@@ -13,8 +13,10 @@ The structure of the directory is the following:
 |
 |_ Data  
       |_ Structures: contains all the models generated with AlphaFold2  
-      |_ minimum_values: file containing the best RMSD, X-mer and binding pocket recovery values for each complex under different setups  
-      |_ other results and annotations 
+      |_ Source data: all the data used to create the main and supplementary figures in tabular form
+      |_ Models: all models generated in this study, sorted by dataset and run types
+      |_ Sup tables: supplementary tables (also provided as suppplementary data in the manuscript)
+
 |    
 |_ Code  
       |_ Analyses_and_figures: scripts that directly generates plots from the underlying data  
