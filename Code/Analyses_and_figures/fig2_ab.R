@@ -50,14 +50,12 @@ bind_with_second_run_type <- function(first_mat, i_prot, metric){
   bound_mat = rbind(first_mat, i_mat)
   return(bound_mat)
 }
-# 
-
 
 draw_by_residue_heatmaps <- function(set, metric, value_vec, color_vec, path, how_to_order){
   setwd(path)
   heatmap_list = list()
   
-  motif_tab = fread("/vol/ek/share/peptide_docking_with_afold2_and_rosettAfold/motif_analyses/first_submission/motif_peptides_with_motif_annotation.tsv")
+  motif_tab = fread(path_to_motif_tab)
   list_of_files = list.files()[grep(metric, list.files())]
   list_of_files = list_of_files[-grep("comparison",list_of_files)]
   list_of_files = list_of_files[grep(".tsv",list_of_files)]
@@ -141,8 +139,6 @@ draw_by_residue_heatmaps <- function(set, metric, value_vec, color_vec, path, ho
     }else{
       all_ht = tmp_ht
     }
-    # draw(tmp_ht, heatmap_legend_side = "bottom", annotation_legend_side = "bottom")
-    # heatmap_list = heatmap_list + get(i_heatmap_name)
     
     
     
@@ -153,8 +149,8 @@ draw_by_residue_heatmaps <- function(set, metric, value_vec, color_vec, path, ho
   
 }
 
-motif_path="/vol/ek/share/peptide_docking_with_afold2_and_rosettAfold/motif_analyses/review/motif_by_residue_rms"
-non_motif_path="/vol/ek/share/peptide_docking_with_afold2_and_rosettAfold/motif_analyses/review/non_motif_by_residue_rms"
+motif_path=path_to_motif_data
+non_motif_path=path_to_non_motif_data
 
 how_to_order = "network_params"
 type_row_split = c("linker","linker","linker","linker","linker","sep","sep","sep","sep","sep")
@@ -184,10 +180,4 @@ dev.off()
 png(file=paste0("review_",how_to_order,"_ord_non_motif_rms_heatmaps.png"),width = 5000, height = 1000, res = 300)
 draw(non_motif_rms_all_ht, heatmap_legend_side = "bottom", annotation_legend_side = "bottom" , auto_adjust=FALSE, row_split = type_row_split)
 dev.off()
-
-
-
-## color backup
-## motif_rms_all_ht = draw_by_residue_heatmaps("motif", "rms", c(-1, 0, 2.5,  5), c("black","ivory","goldenrod1","red3"), motif_path, how_to_order)
-## non_motif_lddt_all_ht = draw_by_residue_heatmaps("non_motif", "lddt", c(0, 0.5,  1), c("blue4","lightskyblue","white"), non_motif_path, how_to_order)
 

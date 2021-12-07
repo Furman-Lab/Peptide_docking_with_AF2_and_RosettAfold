@@ -122,7 +122,7 @@ rms_pep_rec_vs_rmsbb_if <- ggplot(melted_data_rec_pep_bb_if %>% arrange(dataset)
         legend.title = element_blank())
 ```
 
-## Supplementary Figure 6
+## Supplementary Figure 6 - Best Xmers
 ```{r}
 all_rms_data_xmer <- all_rms_data %>% 
   select(pdb_id, dataset, max_in1A, max_in2.5A, max_in4A)
@@ -148,4 +148,3 @@ bestXmer_plot_per_length <-
         legend.title = element_blank()) +
   facet_grid(cols=vars(variable), scales = 'free') 
 ```
-

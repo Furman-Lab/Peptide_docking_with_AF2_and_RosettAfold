@@ -47,16 +47,19 @@ all_pocket_data <- rbind(all_rms_data_combined, all_pfpd_pocket_data_max)
 ```
 
 ```{r}
-binding_pocket_plot <- ggplot(data = all_pocket_data %>% filter(dataset!='approved'),
+binding_pocket_plot <-
+  ggplot(data = all_pocket_data %>% filter(dataset!='approved'),
        aes(y = common_residues_percent, x = method)) +
+  stat_boxplot(aes(color=dataset), geom='errorbar', position='dodge2')+
+  geom_boxplot(aes(fill = dataset, color=dataset), coef=-1,
+               outlier.shape = NA, inherit.aes = TRUE)+
   geom_point(aes(color=dataset, group=dataset),
              position = position_jitterdodge(), 
              size = 2) +
-  geom_boxplot(aes(fill = dataset, color=dataset), alpha = 0.25, outlier.shape = NA)+
   guides(fill = FALSE) +
   guides(color = FALSE) +
   scale_color_manual(values = color_scale_for_raincloud) +
-  scale_fill_manual(values = fill_scale_for_raincloud) +
+  scale_fill_manual(values = c('Motif'='#bfe6f5', 'Non-motif'='#ffdbdb')) +
   scale_y_continuous(labels = scales::percent) +
   theme_bw() +
   raincloud_theme +
@@ -64,11 +67,13 @@ binding_pocket_plot <- ggplot(data = all_pocket_data %>% filter(dataset!='approv
   ylab('Recovered pocket residues') +
   theme(axis.line.y = element_blank(),
         axis.line.x = element_line(color='darkgrey'),
-        axis.ticks.y = element_blank(),
+        axis.ticks.x = element_blank(),
         aspect.ratio = 1, 
-        axis.text = element_text(size=14),
-        axis.text.x = element_text(color='black')
-        ) 
+        axis.text.y = element_text(size=10),
+        axis.title.y = element_text(size=11),
+        axis.text.x = element_text(color='black', size=10)
+  ) 
+
 ```
 
 ## Figure 3C - PolyA peptide

@@ -153,6 +153,33 @@ secstr_bb_rmsbbif <- ggplot(all_frequencies_secstr %>%
 secstr_bb_rmsbbif
 ```
 
+## Supplementary Figure 8 - LNR set statistics
+```{r}
+rms_with_length_dat <- data.frame(table(as.integer(as.character(length_data$peptide_length))))
+rms_with_length_dat$Var1 <- as.integer(as.character(rms_with_length_dat$Var1))
+  
+length_distribution <-
+ggplot(rms_with_length_dat,
+       aes(x=Var1, y=Freq)) +
+  geom_col(width=0.7, color="#ffbf00", fill="#ffbf00") +
+  geom_text(aes(label=Freq), position=position_dodge(width=0.9), vjust=-0.25)+
+  ylab('Count') +
+  xlab('Peptide length') +
+  scale_x_continuous(limits=c(3, 25), expand=c(0,0), breaks = seq(4, 24, 4)) +
+  scale_y_continuous(limits=c(0,12), expand=c(0,0)) +
+  theme(axis.title = element_text(size=12),
+        panel.grid.major = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = 'darkgray', size=0.5, linetype='solid'),
+        axis.ticks = element_line(colour = 'darkgray'))
+
+length_secstr_dist <- cowplot::plot_grid(length_distribution, secstr_distribution, labels='AUTO')
+ggsave('figures/length_secstr_dist.png', length_secstr_dist, 
+       dpi = 300, height = 3, width = 5)
+```
+
+
 ## Figure 5D - PTM+LIG structures
 ```{r}
 ##########################################################
