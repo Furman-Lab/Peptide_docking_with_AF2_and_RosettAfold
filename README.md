@@ -2,10 +2,9 @@
 This repository holds the raw data and code for reproducing the results and figures of paper  
 **Harnessing protein folding neural networks for peptide-protein docking**  
 by *Tomer Tsaban, Julia Varga, Orly Avraham, Ziv Ben-Aharon, Alisa Khramushin, and Ora Schueler-Furman*  
-*XXXX journal and date*  
+*Nature Communications 13, 176 (2022). https://doi.org/10.1038/s41467-021-27838-9*  
 
-In the paper, AlphaFold2 was 
-evaluated for peptide-protein docking, on the basis that peptide-protein docking can be seen as a complementing step to protein folding.   
+In the paper, AlphaFold2 was evaluated for peptide-protein docking, on the basis that peptide-protein docking can be seen as a complementing step to protein folding.   
 
 The structure of the directory is the following:   
 
@@ -22,6 +21,11 @@ The structure of the directory is the following:
       |_ Analyses_and_figures: scripts that directly generates plots from the underlying data  
       |_ Running_and_parsing_jobs: all the scripts that prepare the structures for further analysis (removing linker, superimposition, truncation, etc.)  
 ```  
+
+___________  
+## To run a prediction
+Use `alphafold2_advanced.py` script in `Code/Running_and_parsing_jobs` to run a job. `alphafold2_advanced.py` -h will give a description with all possible options.
+
 ___________  
 If you have any question regarding the data and the code, please send an email to: ora.schueler-furman@mail.huji.ac.il  
 If you use any of these materials, please cite the paper above.
