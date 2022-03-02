@@ -29,8 +29,6 @@ chains=`echo $result | awk -F '_' '{print $2}'`
 # define - is it a polyA run?
 polyA=`pwd | grep polyA | wc -l`
 
-msa_file_output_from_af2="name_of_a3m_file_output_from_af2_run.a3m"
-
 echo $pdb_id
 
 # parse models, remove linkers and rename peptide chain
@@ -38,7 +36,7 @@ for model in `ls *model*pdb`
 do
 	if [[ ! $model == *"linker_removed"* ]] # only if was not run as separate chains
 	then
-		python3 $SCRIPTS/remove_linkers_and_rename_chains.py $model $merged_fasta_tab $msa_file_output_from_af2 $pdb_id $chains $polyA
+		python3 $SCRIPTS/remove_linkers_and_rename_chains.py $model $merged_fasta_tab tmp/*/uniref*.a3m $pdb_id $chains $polyA
 	fi
 done
 
