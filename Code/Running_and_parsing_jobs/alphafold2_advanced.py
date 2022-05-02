@@ -48,7 +48,7 @@ group_msa.add_argument('--subsample_msa', dest='subsample_msa', action='store_tr
 group_msa.add_argument('--just_msa', dest='just_msa', action='store_true', help='create MSA and exit')
 group_msa.add_argument('--no_use_env', dest='no_use_env', action='store_true', help='use environmental sequences?')
 group_msa.add_argument('--pair_msa', dest='pair_msa', action='store_true', help='pair msa for prokaryotic sequences')
-group_msa.add_argument('--msa_method', dest='msa_method', type=str, default="mmseqs2", help='MSA method. [mmseqs2, jackhammer, single_sequence, custom_a3m, precomputed]')
+group_msa.add_argument('--msa_method', dest='msa_method', type=str, default="mmseqs2", help='MSA method. [mmseqs2, single_sequence, custom_a3m, precomputed]')
 group_msa.add_argument('--custom_a3m', dest='custom_a3m', type=str, help='In case msa_method=custom_a3m, this option is required')
 group_msa.add_argument('--rank_by', dest='rank_by', type=str, default='pLDDT', help='specify metric to use for ranking models (For protein-protein complexes, we recommend pTMscore). [pLDDT, pTMscore]')
 group_msa.add_argument('--max_msa', dest='max_msa', type=str, default='512:1024', help='defines: `max_msa_clusters:max_extra_msa` number of sequences to use. (Lowering will reduce GPU requirements, but may result in poor model quality.')
@@ -179,7 +179,6 @@ from alphafold.model import data
 
 from alphafold.data import parsers
 from alphafold.data import pipeline
-from alphafold.data.tools import jackhmmer
 
 from alphafold.common import protein
 
@@ -202,96 +201,6 @@ if use_amber_relax:
   from alphafold.relax import relax
   from alphafold.relax import utils
 
-def run_jackhmmer(sequence, prefix):
-  pickled_msa_path = f"{prefix}.jackhmmer.pickle"
-  if os.path.isfile(pickled_msa_path):
-    msas_dict = pickle.load(open(pickled_msa_path,"rb"))
-    msas, deletion_matrices = (msas_dict[k] for k in ['msas', 'deletion_matrices'])
-    full_msa = []
-    for msa in msas:
-      full_msa += msa
-  else:
-    # --- Find the closest source ---
-    test_url_pattern = 'https://storage.googleapis.com/alphafold-colab{:s}/latest/uniref90_2021_03.fasta.1'
-    ex = futures.ThreadPoolExecutor(3)
-    def fetch(source):
-      request.urlretrieve(test_url_pattern.format(source))
-      return source
-    fs = [ex.submit(fetch, source) for source in ['', '-europe', '-asia']]
-    source = None
-    for f in futures.as_completed(fs):
-      source = f.result()
-      ex.shutdown()
-      break
-
-    jackhmmer_binary_path = '/vol/ek/share/bin/hmmer-3.1b1/bin/jackhmmer'
-    dbs = []
-
-    num_jackhmmer_chunks = {'uniref90': 59, 'smallbfd': 17, 'mgnify': 71}
-    total_jackhmmer_chunks = sum(num_jackhmmer_chunks.values())
-
-  print('Searching uniref90')
-  jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
-    binary_path=jackhmmer_binary_path,
-    database_path=f'https://storage.googleapis.com/alphafold-colab{source}/latest/uniref90_2021_03.fasta',
-    get_tblout=True,
-    num_streamed_chunks=num_jackhmmer_chunks['uniref90'],
-    streaming_callback=jackhmmer_chunk_callback,
-    z_value=135301051)
-  dbs.append(('uniref90', jackhmmer_uniref90_runner.query('target.fasta')))
-
-  print('Searching smallbfd')
-  jackhmmer_smallbfd_runner = jackhmmer.Jackhmmer(
-    binary_path=jackhmmer_binary_path,
-    database_path=f'https://storage.googleapis.com/alphafold-colab{source}/latest/bfd-first_non_consensus_sequences.fasta',
-    get_tblout=True,
-    num_streamed_chunks=num_jackhmmer_chunks['smallbfd'],
-    streaming_callback=jackhmmer_chunk_callback,
-    z_value=65984053)
-  dbs.append(('smallbfd', jackhmmer_smallbfd_runner.query('target.fasta')))
-
-  print('Searching mgnify')
-  jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
-    binary_path=jackhmmer_binary_path,
-    database_path=f'https://storage.googleapis.com/alphafold-colab{source}/latest/mgy_clusters_2019_05.fasta',
-    get_tblout=True,
-    num_streamed_chunks=num_jackhmmer_chunks['mgnify'],
-    streaming_callback=jackhmmer_chunk_callback,
-    z_value=304820129)
-  dbs.append(('mgnify', jackhmmer_mgnify_runner.query('target.fasta')))
-
-  # --- Extract the MSAs and visualize ---
-  # Extract the MSAs from the Stockholm files.
-  # NB: deduplication happens later in pipeline.make_msa_features.
-
-  mgnify_max_hits = 501
-  msas = []
-  deletion_matrices = []
-  for db_name, db_results in dbs:
-    unsorted_results = []
-    for i, result in enumerate(db_results):
-      msa, deletion_matrix, target_names = parsers.parse_stockholm(result['sto'])
-      e_values_dict = parsers.parse_e_values_from_tblout(result['tbl'])
-      e_values = [e_values_dict[t.split('/')[0]] for t in target_names]
-      zipped_results = zip(msa, deletion_matrix, target_names, e_values)
-      if i != 0:
-        # Only take query from the first chunk
-        zipped_results = [x for x in zipped_results if x[2] != 'query']
-      unsorted_results.extend(zipped_results)
-    sorted_by_evalue = sorted(unsorted_results, key=lambda x: x[3])
-    db_msas, db_deletion_matrices, _, _ = zip(*sorted_by_evalue)
-    if db_msas:
-      if db_name == 'mgnify':
-        db_msas = db_msas[:mgnify_max_hits]
-        db_deletion_matrices = db_deletion_matrices[:mgnify_max_hits]
-      msas.append(db_msas)
-      deletion_matrices.append(db_deletion_matrices)
-      msa_size = len(set(db_msas))
-      print(f'{msa_size} Sequences Found in {db_name}')
-
-    pickle.dump({"msas":msas,"deletion_matrices":deletion_matrices},
-                open(pickled_msa_path,"wb"))
-  return msas, deletion_matrices
 
 
 aatypes = set('ACDEFGHIKLMNPQRSTVWY')  # 20 standard aatypes
@@ -381,11 +290,6 @@ else:
       msa, mtx = parsers.parse_a3m(a3m_lines)
       msas_, mtxs_ = [msa], [mtx]
 
-    elif msa_method == "jackhmmer":
-      print(f"running jackhmmer on seq_{n}")
-      # run jackhmmer
-      msas_, mtxs_, names_ = run_jackhmmer(seq, prefix)
-
     # pad sequences
     for msa_, mtx_ in zip(msas_, mtxs_):
       msa, mtx = [sequence], [[0] * len(sequence)]
@@ -395,47 +299,6 @@ else:
 
       msas.append(msa)
       deletion_matrices.append(mtx)
-
-  if pair_msa and len(seqs) > 1:
-    print("attempting to pair some sequences...")
-
-    if msa_method == "mmseqs2":
-      prefix = cf.get_hash("".join(seq))
-      prefix = os.path.join('tmp', prefix)
-      print(f"running mmseqs2_noenv_nofilter on all seqs")
-      A3M_LINES = cf.run_mmseqs2(seqs, prefix, use_env=False, filter=False)
-
-    _data = []
-    for a in range(len(seqs)):
-      _seq = seqs[a]
-      _prefix = os.path.join('tmp', cf.get_hash(_seq))
-
-      if msa_method == "mmseqs2":
-        a3m_lines = A3M_LINES[a]
-        _msa, _mtx, _lab = pairmsa.parse_a3m(a3m_lines)
-
-      elif msa_method == "jackhmmer":
-        _msas, _mtxs, _names = run_jackhmmer(_seq, _prefix)
-        _msa, _mtx, _lab = pairmsa.get_uni_jackhmmer(_msas[0], _mtxs[0], _names[0])
-
-      if len(_msa) > 1:
-        _data.append(pairmsa.hash_it(_msa, _lab, _mtx, call_uniprot=False))
-      else:
-        _data.append(None)
-
-    for a in range(len(seqs)):
-      if _data[a] is not None:
-        for b in range(a + 1, len(seqs)):
-          if _data[b] is not None:
-            _seq_a, _seq_b, _mtx_a, _mtx_b = pairmsa.stitch(_data[a], _data[b])
-            print(f"attempting to pair seq_{a} and seq_{b}... FOUND: {len(_seq_a)}")
-            if len(_seq_a) > 0:
-              msa, mtx = [sequence], [[0] * len(sequence)]
-              for s_a, s_b, m_a, m_b in zip(_seq_a, _seq_b, _mtx_a, _mtx_b):
-                msa.append(_pad([a, b], [s_a, s_b], "seq"))
-                mtx.append(_pad([a, b], [m_a, m_b], "mtx"))
-              msas.append(msa)
-              deletion_matrices.append(mtx)
 
 # save MSA as pickle
 with open(os.path.join(output_dir,"msa.pickle"), "wb") as output_file:
